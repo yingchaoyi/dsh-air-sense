@@ -249,6 +249,18 @@ console.log('\n▶ HTTP')
   const cross = await call('GET', '/api/air-sense/state', undefined, { origin: 'http://evil.example' })
   ok(cross.code === 403, '跨站 Origin 被拒')
 
+  // 连续被判断拦下之后，别一直装死：第 4 次直接开口
+  await call('POST', '/api/air-sense/settings', { keywords: ['这游戏'], keywordSmart: true, initialProb: 1, needActivity: false })
+  const streak = []
+  for (let i = 0; i < 4; i += 1) {
+    const r = await call('POST', '/api/air-sense/decide', { groupId: 'gstreak', senderId: String(77 + i), senderName: '老王' + i, text: '这游戏真难 ' + i }, { 'x-air-sense-token': tok })
+    streak.push(r.json)
+    if (process.env.DBG) console.log('   ↳', r.json?.reason, r.json?.pass)
+  }
+  ok(streak.slice(0, 3).every((r) => r.pass === false), '前三次都被判断拦下')
+  ok(streak[3]?.pass === true && streak[3]?.reason === 'judgedStreak', '装死太久后这轮直接开口')
+  await call('POST', '/api/air-sense/settings', { keywords: [], keywordSmart: false, initialProb: 0.02, needActivity: true })
+
   const mute = await call('POST', '/api/air-sense/mute', { minutes: 5 })
   ok(mute.code === 200, '闭麦接口正常')
   const muted = await call('POST', '/api/air-sense/decide', { groupId: 'g9', senderId: '42', text: '在吗' }, { 'x-air-sense-token': tok })

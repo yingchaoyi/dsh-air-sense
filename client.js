@@ -500,6 +500,8 @@ window.__ModuleLoader__.load({
                   h(Switch, { value: s.usePersona, onChange: (v) => set('usePersona', v) })),
                 h(Field, { label: '超时时间', hint: '秒。超时按「不接」处理，不拖住消息。建议 10~30。' },
                   h(Num, { value: s.judgeTimeoutSec, onChange: (v) => set('judgeTimeoutSec', v), min: 5, max: 120 })),
+                h(Field, { label: '装死太久就破例', hint: '连续被判断拦下这么多次之后，下一次直接开口、不再问模型。0 = 不用这招。嫌它太闷就往小调，嫌它太吵就调大或关掉。' },
+                  h(Num, { value: s.judgeStreakBypass, onChange: (v) => set('judgeStreakBypass', v), min: 0, max: 20 })),
                 h('div', { className: 'as-field as-field-wide' },
                   h('div', { className: 'as-meta' },
                     h('span', { className: 'as-name' }, '判断提示词'),
