@@ -1,6 +1,6 @@
 {
   "name": "dsh-air-sense",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "DSH 插件 · 读空气：AstrBot 群消息进 DSH 之前先判断该不该接话——概率、活跃度、密度、静默、氛围、自适应分数，可开关可调，判断失败不拦消息。",
   "type": "module",
   "main": "lib/index.mjs",

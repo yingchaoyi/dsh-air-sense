@@ -1,5 +1,5 @@
 // 自测：不开 DSH，用假 ctx / 假 req 把判定漏斗和 HTTP 口都跑一遍。
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -179,6 +179,38 @@ console.log('\n▶ @ 别人：开关决定接不接')
   ok(noSkip.needJudge === false, '这种接法不用过判断')
 }
 
+console.log('\n▶ 图片描述走注入的服务')
+{
+  const { adoptForTest, describeForTest } = await import(join(root, 'lib/index.mjs'))
+  const file = join(home, 'pic.png')
+  writeFileSync(file, Buffer.from('png-bytes-' + Date.now()))
+  let saved = 0
+  let streamed = 0
+  const fake = {
+    inject(names, cb) {
+      if (names.includes('agentDefaultModel')) cb({ agentDefaultModel: { currentSelection: () => ({ provider: 'p', model: 'm' }) } })
+      if (names.includes('llm')) cb({
+        llm: {
+          stream() {
+            streamed += 1
+            return (async function* () {
+              yield { type: 'text-delta', text: '一只猫在瞪人' }
+              yield { type: 'finish', kind: 'stop' }
+            })()
+          },
+        },
+      })
+      if (names.includes('attachments')) cb({
+        attachments: { saveImage: async () => { saved += 1; return { attachmentId: 'sha256:aa', mediaType: 'image/png', bytes: 9 } } },
+      })
+    },
+  }
+  adoptForTest(fake)
+  const text = await describeForTest(fake, { path: file }, { captionCache: true })
+  ok(text === '一只猫在瞪人', '描述真的走通（拿到模型输出）')
+  ok(saved === 1 && streamed === 1, '附件与模型都被调了一次')
+}
+
 console.log('\n▶ HTTP')
 {
   const noTok = await call('POST', '/api/air-sense/decide', { groupId: 'g1', senderId: '1', text: 'hi' })
@@ -229,7 +261,7 @@ console.log('\n▶ 落盘与清理')
   const data = JSON.parse(readFileSync(join(home, 'air-sense', 'store.json'), 'utf8'))
   ok(!!data.groups.g9, '群状态写进 store.json')
   ok(!!data.token, 'token 在 store 里')
-  ok(Object.keys(data.captions).length === 1, '描述缓存只有一条')
+  ok(Object.keys(data.captions).length >= 1, '描述缓存写进 store.json')
 
   const g = groupOf('g9')
   ok(typeof g.score === 'number', '分数初始化')
