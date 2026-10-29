@@ -151,6 +151,21 @@ console.log('\n▶ 判定漏斗（纯函数）')
 
   const quietCross = inQuiet({ enabled: true, from: '23:00', to: '07:00' }, new Date('2026-10-29T02:00:00'))
   ok(quietCross === true, '跨零点的静默时段')
+
+  // 额度只算主动开口：群友聊 100 条也不占老子一个名额
+  const { onUserMessage, onReply } = await import(join(root, 'lib/decide.mjs'))
+  const qs = { ...s, dailyCap: 2, hourlyCap: 2, minUserMsgs: 0, needActivity: false, moodMute: false, sameUserCooldownSec: 0, baseProb: 1 }
+  const qg = newGroupState('gq')
+  for (let i = 0; i < 100; i++) onUserMessage(qg, { senderId: 'u1', text: 'x' }, Date.now())
+  const q1 = evaluate({ id: 'a1', groupId: 'gq', senderId: 'u1', text: '随便说一句' }, qg, qs, Date.now())
+  ok(q1.reason !== 'daily' && q1.reason !== 'hourly', `群友刷 100 条也不占额度（reason=${q1.reason}）`)
+  onReply(qg, qs, { senderId: 'u1' }, Date.now(), { proactive: true })
+  onReply(qg, qs, { senderId: 'u1' }, Date.now(), { proactive: true })
+  const q3 = evaluate({ id: 'a3', groupId: 'gq', senderId: 'u1', text: '再来一句' }, qg, qs, Date.now())
+  ok(q3.reason === 'daily', '主动开口到上限 → 拦')
+  const qAt = evaluate({ id: 'a4', groupId: 'gq', senderId: 'u1', text: '@哦鲸鲸 在吗', atBot: true }, qg, qs, Date.now())
+  ok(qAt.pass === true && qAt.reason === 'atBot', '@ 老子：到上限也照回')
+  ok(qg.stats.proactive === 2, `@ 的回复不占额度（proactive=${qg.stats.proactive}）`)
 }
 
 console.log('\n▶ HTTP')
