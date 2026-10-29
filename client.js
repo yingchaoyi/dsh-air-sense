@@ -381,7 +381,7 @@ window.__ModuleLoader__.load({
               },
                 h(Field, { label: '@ 老子必接', hint: '被 @ 时跳过所有概率筛选，一定进判断。关掉就是 @ 也要掷骰子。' },
                   h(Switch, { value: s.atAlwaysReply, onChange: (v) => set('atAlwaysReply', v) })),
-                h(Field, { label: '@ 别人时不插嘴', hint: '消息 @ 的是别人时直接放过，免得抢话。' },
+                h(Field, { label: '@ 别人时不插嘴', hint: '开：别人 @ 别人就闭嘴；关：只要这条消息里有 @，不管 @ 的是谁，老子都接一句（不计入主动额度，也不受日/时上限约束）。' },
                   h(Switch, { value: s.atOthersSkip, onChange: (v) => set('atOthersSkip', v) })),
                 h(Field, { label: '关键词智能模式', hint: '命中关键词只跳过概率，仍然让读空气 AI 判断该不该回。关掉=命中就直接回。' },
                   h(Switch, { value: s.keywordSmart, onChange: (v) => set('keywordSmart', v) })),

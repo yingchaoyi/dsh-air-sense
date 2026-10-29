@@ -168,6 +168,17 @@ console.log('\n▶ 判定漏斗（纯函数）')
   ok(qg.stats.proactive === 2, `@ 的回复不占额度（proactive=${qg.stats.proactive}）`)
 }
 
+console.log('\n▶ @ 别人：开关决定接不接')
+{
+  const base = { id: 'm-a4', groupId: 'g1', senderId: 'u1', senderName: '甲', text: '@乙 你看这个', atBot: false, atOthers: true }
+  const base_s = normalizeSettings({ ...DEFAULTS, needActivity: false })
+  const withSkip = evaluate(base, newGroupState('g2'), base_s, Date.now())
+  ok(withSkip.pass === false && withSkip.reason === 'atOthers', '开关开：@ 别人不接')
+  const noSkip = evaluate(base, newGroupState('g3'), { ...base_s, atOthersSkip: false }, Date.now())
+  ok(noSkip.pass === true, '开关关：@ 别人也接')
+  ok(noSkip.needJudge === false, '这种接法不用过判断')
+}
+
 console.log('\n▶ HTTP')
 {
   const noTok = await call('POST', '/api/air-sense/decide', { groupId: 'g1', senderId: '1', text: 'hi' })
