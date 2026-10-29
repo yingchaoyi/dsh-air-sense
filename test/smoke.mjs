@@ -19,7 +19,7 @@ function ok(cond, label) {
 const root = new URL('..', import.meta.url).pathname
 const { apply, decide } = await import(join(root, 'lib/index.mjs'))
 const { normalizeSettings, DEFAULTS } = await import(join(root, 'lib/defaults.mjs'))
-const { evaluate, newGroupState, rollHit, inQuiet, scoreFactor, densityFactor } = await import(join(root, 'lib/decide.mjs'))
+const { evaluate, newGroupState, rollHit, inQuiet, scoreFactor, hungerFactor, densityFactor } = await import(join(root, 'lib/decide.mjs'))
 const { load, groupOf } = await import(join(root, 'lib/store.mjs'))
 
 // ── 假 ctx：只给 webServer，别的服务一律没有 ──
@@ -144,7 +144,10 @@ console.log('\n▶ 判定漏斗（纯函数）')
   const df = densityFactor(dg, { ...s, density: true, densityWindowSec: 300, densityMax: 5 }, Date.now())
   ok(df.factor === 0, '密度到硬限 → 概率归零')
 
-  ok(scoreFactor(100) === 1 && scoreFactor(10) < 0.5, '分数低 → 概率打折')
+  ok(Math.abs(scoreFactor(100) - 6) < 1e-9 && Math.abs(scoreFactor(40) - 1) < 1e-9 && scoreFactor(10) < 0.6, '分数曲线：40×1、100×6')
+  ok(scoreFactor(50) > 1.3 && scoreFactor(85) > 4, '中高分要有真实放大')
+  ok(hungerFactor({ lastReplyAt: Date.now() - 3 * 3600_000 }) === 1.5, '闲 3 小时 ×1.5')
+  ok(hungerFactor({ lastReplyAt: Date.now() - 9 * 3600_000 }) === 2 && hungerFactor({}) === 1, '饥饿封顶 ×2、没开过口 ×1')
 
   const quietCross = inQuiet({ enabled: true, from: '23:00', to: '07:00' }, new Date('2026-10-29T02:00:00'))
   ok(quietCross === true, '跨零点的静默时段')

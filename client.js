@@ -176,6 +176,19 @@ window.__ModuleLoader__.load({
       )
     }
 
+    // 与服务端 decide.mjs 同一条曲线，只用来在概览里给人看
+    function scoreF(score) {
+      const v = Math.min(100, Math.max(0, score || 0))
+      if (v <= 40) return 0.35 + (v / 40) * 0.65
+      if (v <= 70) return 1 + ((v - 40) / 30) * 1.2
+      return 2.2 + ((v - 70) / 30) * 3.8
+    }
+    function hungerF(lastReplyAt) {
+      if (!lastReplyAt) return 1
+      const hrs = (Date.now() - lastReplyAt) / 3600000
+      return hrs <= 1 ? 1 : Math.min(2, 1 + (hrs - 1) * 0.25)
+    }
+
     function pageNumbers(cur, count) {
       if (count <= 7) return Array.from({ length: count }, (_, i) => i)
       const out = [0]
@@ -327,6 +340,10 @@ window.__ModuleLoader__.load({
                               ? h('span', { className: 'as-chip' }, '闭麦中')
                               : h('span', { className: 'as-chip' }, `分数 ${g.score}`)),
                           h('div', { className: 'gmeta' }, `近窗 ${g.recent} 条 · 今天 ${g.stats?.count || 0} 看 / ${g.stats?.pass || 0} 接`),
+                          h('div', { className: 'gmeta' },
+                            `分数 ×${scoreF(g.score).toFixed(1)}`,
+                            s.hunger === false ? '' : ` · 闲了 ${((Date.now() - (g.lastReplyAt || 0)) / 3600000).toFixed(1)}h ×${hungerF(g.lastReplyAt).toFixed(1)}`,
+                            ` · 这次约 ${Math.min(100, Math.round((s.initialProb || 0) * scoreF(g.score) * (s.hunger === false ? 1 : hungerF(g.lastReplyAt)) * 100))}%`),
                           h('div', { className: 'grow' },
                             h('span', null),
                             h('button', {
@@ -460,6 +477,8 @@ window.__ModuleLoader__.load({
               },
                 h(Field, { label: '启用', hint: '关掉之后分数固定，不再随互动涨落。' },
                   h(Switch, { value: s.adaptive, onChange: (v) => set('adaptive', v) })),
+                h(Field, { label: '饥饿加成', hint: '越久没在这个群开口，概率越高，最多翻倍（5 小时到顶）。冷场不代表不该说话。' },
+                  h(Switch, { value: s.hunger !== false, onChange: (v) => set('hunger', v) })),
                 h(Field, { label: '初始分', hint: '新群第一次出现时的起始分，默认 50。' },
                   h(Num, { value: s.scoreInit, onChange: (v) => set('scoreInit', v), min: 0, max: 100 })),
                 h(Field, { label: '有人接加分', hint: '主动开口有人回复时的加分，默认 15。' },
