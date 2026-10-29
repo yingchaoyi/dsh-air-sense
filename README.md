@@ -53,7 +53,7 @@ PY
 
 AstrBot 侧要改 `astrbot_plugin_dsh/main.py` 四处，改完重载插件：
 
-1. `_air_body()` / `_air_base()` / `_air_token()`：拼 `{groupId,senderId,senderName,messageId,text,atBot,atOthers,sticker,hasMedia,recent}`，token 读 `~/.dsh/air-sense/token`，地址默认 `http://127.0.0.1:3080`（`trust_env=False`，超时 20 秒）。
+1. `_air_body()` / `_air_base()` / `_air_token()`：拼 `{groupId,senderId,senderName,messageId,text,atBot,atOthers,sticker,hasMedia,images,recent}`，`images` 是这条消息里图片的本地路径（最多两张，用 `Image.convert_to_file_path()` 拿），token 读 `~/.dsh/air-sense/token`，地址默认 `http://127.0.0.1:3080`（`trust_env=False`，超时 20 秒）。
 2. `_air_decide()`：`POST /api/air-sense/decide`，成功返回 `{ok, pass, reason, stamp}`；非 200、异常、`ok=false` 一律返回 `None`。
 3. `on_message()` 开头：群消息先问一次，不接就 `event.stop_event()` 直接返回；接了置 `air_pass = True`，用它绕过 `_group_gate_allows` 与 `_should_capture`。
 4. `_forward()`：正文前加 `_air_stamp()`，按回包里的 `stamp.timestampFormat` 渲染 `YYYY MM DD HH mm ss W`。
@@ -115,10 +115,19 @@ node test/client-smoke.mjs   # 14 项：假 React 把四个 tab 真渲染一遍�
 npm test                     # 两个一起跑
 ```
 
+## 图片是怎么看懂的
+
+判断本来只拿得到「这条带图」，看不到图。现在补上了：
+
+1. AstrBot 把这条消息里图片的本地路径一起传过来（`images`，最多两张）；
+2. DSH 这边按图片内容算 sha256 当键，先查本地缓存；
+3. 没命中就用同一个模型描述一句（「画面是什么、有没有字、像什么梗」），描述写进判断提示词，同时存进缓存；
+4. 同一张图再出现直接命中，不再花钱；模型不吃图时记一笔 `unsupported`，不反复试。
+
 ## 已知限制
 
-- **判断阶段只拿得到「这条带图/带表情包」，看不到图本身**。图要等这条消息被放行、随消息一起进模型。要让判断也「看图」，得在 AstrBot 侧先转文字，再通过 `/api/air-sense/caption` 写进缓存。
 - 群昵称依赖 AstrBot，DSH 侧拿不到；`stamp.sender` 打开时由 AstrBot 拼 `昵称(QQ号)`。
+- 一条消息最多描述两张图，描述延迟计入判断耗时（超时 8 秒，失败就当没图）。
 
 ## License
 

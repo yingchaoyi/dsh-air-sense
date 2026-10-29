@@ -540,7 +540,7 @@ window.__ModuleLoader__.load({
                         h('div', { className: 'as-logbody' },
                           h('div', { className: 'l1' }, l.reasonText || l.reason),
                           h('div', { className: 'l2' },
-                            `${new Date(l.at).toLocaleString('zh-CN', { hour12: false })} · ${l.senderName || l.senderId || '?'}${l.groupId ? ` @${l.groupId}` : ''}${l.text ? ` · ${String(l.text).slice(0, 60)}` : ''}${l.judge ? ` · judge:${l.judge}` : ''}`)),
+                            `${new Date(l.at).toLocaleString('zh-CN', { hour12: false })} · ${l.senderName || '某人'}${l.senderId ? `(${l.senderId})` : ''}${l.groupId ? ` · 群${l.groupId}` : ''}${l.text ? ` · ${String(l.text).slice(0, 60)}` : l.hasMedia ? ` · ${l.sticker ? '[表情包]' : '[图片]'}` : ''}${l.judge ? ` · judge:${l.judge}` : ''}`)),
                       ),
                     ),
                   ),
