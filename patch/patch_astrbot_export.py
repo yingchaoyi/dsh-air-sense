@@ -67,6 +67,21 @@ OLD_SEND = '''        if self._is_inline_image(file_name, size):
             return'''
 
 NEW_SEND = '''        if self._is_inline_image(file_name, size):
+            # PRE_CONVERT: QQ 对 webp / 带透明通道的 PNG 经常回 rich media transfer failed，
+            # 先转成白底 JPEG 再发，别等失败了才重试。
+            if src.suffix.lower() in (".webp", ".png"):
+                conv = self._to_jpeg(src)
+                if conv is not None:
+                    try:
+                        await self._deliver(event, event.chain_result([Image.fromFileSystem(str(conv))]))
+                        return
+                    except Exception as exc:
+                        logger.warning("send pre-converted image failed: %s", exc)
+                    finally:
+                        try:
+                            conv.unlink(missing_ok=True)
+                        except OSError:
+                            pass
             try:
                 await self._deliver(event, event.chain_result([Image.fromFileSystem(str(src))]))
                 return
@@ -107,6 +122,10 @@ def main() -> int:
         src = src.replace(OLD_STRIP, NEW_STRIP, 1)
         src = src.replace(STRIP_ANCHOR, ACP_FIELDS + STRIP_ANCHOR, 1)
         changed.append("清理内部标记")
+
+    if "_to_jpeg" in src and "PRE_CONVERT" not in src and OLD_SEND in src:
+        src = src.replace(OLD_SEND, NEW_SEND, 1)
+        changed.append("发图预转 JPEG")
 
     if "_to_jpeg" not in src:
         if SEND_ANCHOR not in src or OLD_SEND not in src:
