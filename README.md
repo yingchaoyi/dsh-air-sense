@@ -60,6 +60,17 @@ AstrBot 侧要改 `astrbot_plugin_dsh/main.py` 四处，改完重载插件：
 
 任何一步连不上都由 `_air_decide` 返回 `None`，自动退回原逻辑。
 
+## AstrBot 侧的两个补丁
+
+读空气只负责「接不接」，群消息进来和回复出去都还在 AstrBot 的 `astrbot_plugin_dsh` 里。两个可选补丁，作用是让那个插件更稳：
+
+```bash
+python3 patch/patch_astrbot_dsml.py  /path/to/astrbot_plugin_dsh/main.py   # 剥掉出口的 ||DSML|| 乱码
+python3 patch/patch_astrbot_export.py /path/to/astrbot_plugin_dsh/main.py  # 内部标记 + 发图兜底
+```
+
+第二个补丁做两件事：把 `<acp …>m12345`、`</ap>` 这类内部标记从回复里清掉；发图被 QQ 拒收（`rich media transfer failed`）时，自动转成白底 JPEG 再试一次，还不行才回一句「八成是风控」。两个补丁都是幂等的，跑几遍都一样。
+
 ## 面板
 
 设置 → **读空气**，四个 tab：
