@@ -33,8 +33,24 @@ NEW_STRIP = '''        if not text:
             out = self._ACP_TAG_RE.sub("", out)
             out = self._ACP_REF_RE.sub("", out)'''
 
-JPEG_HELPER = '''    def _to_jpeg(self, src: Path, max_side: int = 1280) -> Path | None:
-        """PNG/透明通道在 NapCat 上常被 QQ 拒收，转成白底 JPEG 再试一次。"""
+JPEG_HELPER = '''    @staticmethod
+    def _is_animated_image(src: Path) -> bool:
+        """ANIMATED_SKIP: 动图（gif / 动画 webp）不能转 jpg，转了就成静态了。"""
+        try:
+            if src.suffix.lower() == ".gif":
+                return True
+            if src.suffix.lower() != ".webp":
+                return False
+            with src.open("rb") as fh:
+                head = fh.read(64)
+            return b"ANIM" in head or b"ANMF" in head
+        except OSError:
+            return False
+
+    def _to_jpeg(self, src: Path, max_side: int = 1280) -> Path | None:
+        """PNG/透明通道在 NapCat 上常被 QQ 拒收，转成白底 JPEG 再试一次。动图不动。"""
+        if self._is_animated_image(src):
+            return None
         try:
             from PIL import Image as _PILImage
         except Exception:
