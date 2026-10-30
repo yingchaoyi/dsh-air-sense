@@ -62,14 +62,21 @@ AstrBot 侧要改 `astrbot_plugin_dsh/main.py` 四处，改完重载插件：
 
 ## AstrBot 侧的两个补丁
 
-读空气只负责「接不接」，群消息进来和回复出去都还在 AstrBot 的 `astrbot_plugin_dsh` 里。两个可选补丁，作用是让那个插件更稳：
+读空气只负责「接不接」，消息进来和回复出去都还在 AstrBot 的 `astrbot_plugin_dsh` 里。两个补丁单独维护在另一个仓库：
+
+**➡️ [dsh-astrbot-patches](https://github.com/yingchaoyi/dsh-astrbot-patches)**
+
+| 脚本 | 干什么 |
+| --- | --- |
+| `patch_astrbot_dsml.py` | 剥掉出口的 `‖‖DSML‖‖invoke` 这类工具调用乱码 |
+| `patch_astrbot_export.py` | 清 `<acp …>m12345`、`</ap>` 内部标记；发图被 QQ 拒收时转白底 JPEG（gif / 动画 webp 不动） |
 
 ```bash
-python3 patch/patch_astrbot_dsml.py  /path/to/astrbot_plugin_dsh/main.py   # 剥掉出口的 ||DSML|| 乱码
-python3 patch/patch_astrbot_export.py /path/to/astrbot_plugin_dsh/main.py  # 内部标记 + 发图兜底
+git clone https://github.com/yingchaoyi/dsh-astrbot-patches
+python3 dsh-astrbot-patches/patch_astrbot_export.py ~/data/plugins/astrbot_plugin_dsh/main.py
 ```
 
-第二个补丁做两件事：把 `<acp …>m12345`、`</ap>` 这类内部标记从回复里清掉；发图被 QQ 拒收（`rich media transfer failed`）时，自动转成白底 JPEG 再试一次，还不行才回一句「八成是风控」。两个补丁都是幂等的，跑几遍都一样。
+打完**重载 AstrBot 插件**才生效。两个脚本都是幂等的，重复跑不会出问题；锚点找不到会直接报错，不会瞎改。`patch_astrbot_export.py` 已经包含另一个脚本的全部内容，跑它一个就够。
 
 ## 面板
 
