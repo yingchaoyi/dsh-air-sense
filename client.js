@@ -6,7 +6,6 @@ window.__ModuleLoader__.load({
     const h = React.createElement
 
     const API = '/api/air-sense'
-    const PAGE = 10
 
     async function get(path) {
       const res = await fetch(API + path, { headers: { accept: 'application/json' } })
@@ -247,6 +246,7 @@ window.__ModuleLoader__.load({
       React.useEffect(() => setPage(0), [tab, q])
 
       const s = state?.settings
+      const PAGE = Math.max(5, Math.min(50, Number(s?.pageSize) || 10))
       const save = async (patch) => {
         setSaving(true)
         try {
@@ -402,6 +402,8 @@ window.__ModuleLoader__.load({
                   h(Switch, { value: s.captionCache, onChange: (v) => set('captionCache', v) })),
                 h(Field, { label: '缓存上限', hint: `现在 ${state.captions} 条。超过自动清最旧的、保留 80% 最新；硬上限 5000。` },
                   h(Num, { value: s.captionCacheMax, onChange: (v) => set('captionCacheMax', v), min: 10, max: 5000 })),
+                h(Field, { label: '缓存挤掉后留多少', hint: '0.5~1。超上限清最旧的，保留这个比例的最新一批，别一次清空再重新花钱。默认 0.8。' },
+                  h(Num, { value: s.captionCacheKeep, onChange: (v) => set('captionCacheKeep', v), min: 0.5, max: 1 })),
               ),
               h(Sec, {
                 title: '活跃与密度',
@@ -428,7 +430,7 @@ window.__ModuleLoader__.load({
                   h(Num, { value: s.dailyCap, onChange: (v) => set('dailyCap', v), min: 1, max: 2000 })),
                 h(Field, { label: '每小时上限', hint: '每小时最多主动开口几次，防一时上头。@ 的同样不计数。' },
                   h(Num, { value: s.hourlyCap, onChange: (v) => set('hourlyCap', v), min: 1, max: 500 })),
-                h(Field, { label: '同人冷却', hint: '同一个人刚被回过，这段时间内不再追着答。0 = 关掉。' },
+                h(Field, { label: '同人冷却', hint: '单位秒。同一个人刚被回过，这么多秒内不再追着答，免得追着一个人连喷。默认 30，0 = 关掉。' },
                   h(Num, { value: s.sameUserCooldownSec, onChange: (v) => set('sameUserCooldownSec', v), min: 0, max: 3600 })),
                 h(Field, { label: '静默时段', hint: '这个时间段内一律不接，@ 也不接。' },
                   h(Switch, { value: s.quiet?.enabled, onChange: (v) => setNested('quiet', 'enabled', v) })),
@@ -439,6 +441,10 @@ window.__ModuleLoader__.load({
                     h(Text, { value: s.quiet?.to, onCommit: (v) => setNested('quiet', 'to', v), style: { width: 64 } }))),
                 h(Field, { label: '吵架刷屏时闭嘴', hint: '窗口内消息突然爆量，先不插嘴，等安静下来再说。' },
                   h(Switch, { value: s.moodMute, onChange: (v) => set('moodMute', v) })),
+                h(Field, { label: '氛围窗口', hint: '秒。看最近这么多秒内的消息量，默认 90 秒。' },
+                  h(Num, { value: s.moodWindowSec, onChange: (v) => set('moodWindowSec', v), min: 30, max: 1800 })),
+                h(Field, { label: '算刷屏的条数', hint: '窗口内超过这么多条就当在吵架/刷屏，先闭嘴。默认 12 条。' },
+                  h(Num, { value: s.moodThreshold, onChange: (v) => set('moodThreshold', v), min: 3, max: 100 })),
               ),
               h(Sec, {
                 title: '戳一戳',
@@ -457,6 +463,8 @@ window.__ModuleLoader__.load({
                   h(Num, { value: s.pokeBackProb, onChange: (v) => set('pokeBackProb', v), min: 0, max: 1 })),
                 h(Field, { label: '回复后戳回去概率', hint: '主动回复时顺手戳一下提问的人。默认 0.15，太高会烦人。' },
                   h(Num, { value: s.replyPokeProb, onChange: (v) => set('replyPokeProb', v), min: 0, max: 1 })),
+                h(Field, { label: '戳一戳白名单', hint: 'QQ 号或群号，逗号分隔。填了就只有这些人/群戳老子才响应；留空 = 全响应。' },
+                  h(Text, { value: (s.pokeWhitelist || []).join('，'), onCommit: (v) => set('pokeWhitelist', v), wide: true })),
               ),
               h(Sec, {
                 title: '过滤',
@@ -487,6 +495,16 @@ window.__ModuleLoader__.load({
                   h(Num, { value: s.scoreFail, onChange: (v) => set('scoreFail', v), min: 0, max: 50 })),
                 h(Field, { label: '每日衰减', hint: '每 24 小时没互动自动扣一点，防止吃老本，默认 2。' },
                   h(Num, { value: s.scoreDailyDecay, onChange: (v) => set('scoreDailyDecay', v), min: 0, max: 20 })),
+                h(Field, { label: '秒回加分', hint: '回复来得快，说明接得准，加分。默认 5。' },
+                  h(Num, { value: s.scoreFast, onChange: (v) => set('scoreFast', v), min: 0, max: 50 })),
+                h(Field, { label: '算秒回的秒数', hint: '对方发完多少秒内回复算「秒回」，默认 30 秒。' },
+                  h(Num, { value: s.fastReplySec, onChange: (v) => set('fastReplySec', v), min: 5, max: 300 })),
+                h(Field, { label: '多人接话加分', hint: '一句之后好几个人应声，说明说到点上，加分。默认 10。' },
+                  h(Num, { value: s.scoreMulti, onChange: (v) => set('scoreMulti', v), min: 0, max: 50 })),
+                h(Field, { label: '连续接话加分', hint: '趁热打铁连着的第二轮回复，加分。默认 5。' },
+                  h(Num, { value: s.scoreStreak, onChange: (v) => set('scoreStreak', v), min: 0, max: 50 })),
+                h(Field, { label: '冷落后复苏加分', hint: '装死很久之后成功接上话，加分把人设拉回来。默认 20。' },
+                  h(Num, { value: s.scoreRevive, onChange: (v) => set('scoreRevive', v), min: 0, max: 50 })),
                 h(Field, { label: '分数下限', hint: '再惨也不低于这个分，给个翻身机会。' },
                   h(Num, { value: s.scoreMin, onChange: (v) => set('scoreMin', v), min: 0, max: 100 })),
                 h(Field, { label: '分数上限', hint: '再热也不超过这个分，防止越说越上头。' },
@@ -502,6 +520,8 @@ window.__ModuleLoader__.load({
                   h(Num, { value: s.judgeTimeoutSec, onChange: (v) => set('judgeTimeoutSec', v), min: 5, max: 120 })),
                 h(Field, { label: '装死太久就破例', hint: '连续被判断拦下这么多次之后，下一次直接开口、不再问模型。0 = 不用这招。嫌它太闷就往小调，嫌它太吵就调大或关掉。' },
                   h(Num, { value: s.judgeStreakBypass, onChange: (v) => set('judgeStreakBypass', v), min: 0, max: 20 })),
+                h(Field, { label: '喂给判断的字数上限', hint: '只截取最近这么多字给判断模型，省 token。默认 1200 字，够看出上下文。' },
+                  h(Num, { value: s.judgeMaxChars, onChange: (v) => set('judgeMaxChars', v), min: 200, max: 4000 })),
                 h('div', { className: 'as-field as-field-wide' },
                   h('div', { className: 'as-meta' },
                     h('span', { className: 'as-name' }, '判断提示词'),
@@ -516,6 +536,15 @@ window.__ModuleLoader__.load({
                     h('button', { className: 'as-btn', onClick: () => { promptTouched.current = false; setPrompt(''); save({ judgePrompt: '' }) } }, '用默认'),
                     h('button', { className: 'as-btn', onClick: () => save({ judgePrompt: prompt }) }, '保存'))),
               ),
+              h(Sec, {
+                title: '面板',
+                desc: '只管这个设置页怎么看，不影响判定。',
+              },
+                h(Field, { label: '日志每页条数', hint: '判断记录页一页显示几条，默认 10。' },
+                  h(Num, { value: s.pageSize, onChange: (v) => set('pageSize', v), min: 5, max: 50 })),
+                h(Field, { label: '日志保留条数', hint: '最多存多少条判断记录，超了丢最旧的。默认 300。' },
+                  h(Num, { value: s.logMax, onChange: (v) => set('logMax', v), min: 20, max: 2000 })),
+              ),
               saving ? h('div', { className: 'as-note' }, '保存中…') : null,
             )
           : null,
@@ -525,7 +554,7 @@ window.__ModuleLoader__.load({
               'div',
               { className: 'as-card' },
               h('div', { className: 'as-card-title' }, '判断记录'),
-              h('div', { className: 'as-card-desc' }, '每一条「为什么没接」都在这。接了的标绿，被规则拦掉的标红，分数变动单独一行。按内容、理由、昵称、群号都能搜，每页 10 条。'),
+              h('div', { className: 'as-card-desc' }, '每一条「为什么没接」都在这。接了的标绿，被规则拦掉的标红，分数变动单独一行。按内容、理由、昵称、群号都能搜，一页几条在「设置 → 面板」里改。'),
               h('div', { className: 'as-toolbar' },
                 h('input', { className: 'as-text', style: { flex: 1, minWidth: 160 }, placeholder: '搜内容、理由、昵称、群号', value: q, onChange: (e) => setQ(e.target.value) }),
                 h('span', { className: 'as-muted', style: { fontSize: 11.5 } }, `共 ${logs.length} 条`),
