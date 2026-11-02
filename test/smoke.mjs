@@ -237,6 +237,11 @@ console.log('\n▶ HTTP')
   const settings = await call('POST', '/api/air-sense/settings', { initialProb: 0.5, keywords: 'a,b' })
   ok(settings.code === 200 && settings.json.settings.initialProb === 0.5, '改设置生效')
   ok(settings.json.settings.keywords.length === 2, '关键词字符串也能收')
+  const s0 = settings.json.settings
+  const st1 = await call('POST', '/api/air-sense/settings', { stamp: { sender: false } })
+  ok(st1.json.settings.stamp.sender === false && st1.json.settings.stamp.timestamp === s0.stamp.timestamp, '改时间戳单项不打回其它项')
+  const q1 = await call('POST', '/api/air-sense/settings', { quiet: { from: '02:00' } })
+  ok(q1.json.settings.quiet.from === '02:00' && q1.json.settings.quiet.to === s0.quiet.to, '改静默起点不打回终点')
 
   const sim = await call('POST', '/api/air-sense/simulate', { text: '在吗', atBot: true })
   ok(sim.code === 200 && sim.json.pass === true, '面板模拟：@ 命中必接')
