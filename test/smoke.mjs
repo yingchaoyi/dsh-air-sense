@@ -264,6 +264,13 @@ console.log('\n▶ HTTP')
   }
   ok(streak.slice(0, 3).every((r) => r.pass === false), '前三次都被判断拦下')
   ok(streak[3]?.pass === true && streak[3]?.reason === 'judgedStreak', '装死太久后这轮直接开口')
+
+  // 关掉 AI 判断：同样一条消息不再问模型，掷骰子/关键词过了直接开口
+  await call('POST', '/api/air-sense/settings', { judgeEnabled: false })
+  const noJudge = await call('POST', '/api/air-sense/decide', { groupId: 'gnojudge', senderId: '99', senderName: '老李', text: '这游戏真难 别判断了' }, { 'x-air-sense-token': tok })
+  ok(noJudge.json?.pass === true && noJudge.json?.reason === 'judgeOff' && !noJudge.json?.judge, '关掉 AI 判断后直接开口、不调模型')
+  await call('POST', '/api/air-sense/settings', { judgeEnabled: true })
+
   await call('POST', '/api/air-sense/settings', { keywords: [], keywordSmart: false, initialProb: 0.02, needActivity: true })
 
   const mute = await call('POST', '/api/air-sense/mute', { minutes: 5 })

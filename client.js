@@ -514,6 +514,8 @@ window.__ModuleLoader__.load({
                 title: 'AI 判断',
                 desc: '概率过了之后，还要问一次「现在真的适合开口吗」。这一步会调一次模型，所以能省就省：只在 borderline 的时候问，超时就当不接。',
               },
+                h(Field, { label: '启用 AI 判断', hint: '关掉就一次模型都不调：掷骰子或关键词过了直接开口。省 token、回得快，但少了「现在真的适合说话吗」这道过滤，说话会更莽。' },
+                  h(Switch, { value: s.judgeEnabled, onChange: (v) => set('judgeEnabled', v) })),
                 h(Field, { label: '判断时带人格', hint: '把三档记忆插件里的人设一起发给判断模型，让它按人格立场决定要不要开口。' },
                   h(Switch, { value: s.usePersona, onChange: (v) => set('usePersona', v) })),
                 h(Field, { label: '超时时间', hint: '秒。超时按「不接」处理，不拖住消息。建议 10~30。' },
