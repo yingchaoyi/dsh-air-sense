@@ -43,6 +43,13 @@ window.__ModuleLoader__.load({
 .as-tab{padding:5px 14px;border-radius:8px;border:0;background:transparent;color:inherit;cursor:pointer;font-size:12.5px;opacity:.65}
 .as-tab:hover{opacity:.9}
 .as-tab[data-on="1"]{background:color-mix(in oklab,currentColor 13%,transparent);opacity:1;font-weight:600}
+.as-groups{display:flex;flex-wrap:wrap;gap:6px}
+.as-group{padding:5px 12px;border-radius:999px;border:1px solid color-mix(in oklab,currentColor 14%,transparent);background:transparent;color:inherit;cursor:pointer;font-size:12px;opacity:.7}
+.as-group:hover{opacity:.95}
+.as-group[data-on="1"]{border-color:color-mix(in oklab,#3b82f6 55%,transparent);background:color-mix(in oklab,#3b82f6 14%,transparent);opacity:1;font-weight:600}
+.as-groupbar{display:flex;align-items:center;gap:8px;font-size:12px;padding:8px 12px;border-radius:10px;background:color-mix(in oklab,currentColor 4%,transparent)}
+.as-mini{padding:4px 10px;border-radius:8px;border:1px solid color-mix(in oklab,currentColor 16%,transparent);background:transparent;color:inherit;cursor:pointer;font-size:11.5px;opacity:.75}
+.as-mini:hover{opacity:1}
 .as-panel{display:flex;flex-direction:column;gap:12px}
 .as-card{border:1px solid color-mix(in oklab,currentColor 12%,transparent);border-radius:12px;padding:14px 16px;background:color-mix(in oklab,currentColor 2.5%,transparent)}
 .as-card .as-card-title{font-size:12px;font-weight:700;opacity:.75;margin-bottom:8px;letter-spacing:.3px}
@@ -225,17 +232,19 @@ window.__ModuleLoader__.load({
       const [saving, setSaving] = React.useState(false)
       const [prompt, setPrompt] = React.useState('')
       const promptTouched = React.useRef(false)
+      // '' = 全局默认，其它值是群号：面板在编辑哪个群，就改哪个群的配置
+      const [gid, setGid] = React.useState('')
 
       const reload = React.useCallback(async () => {
         try {
-          const data = await get('/state')
+          const data = await get('/state' + (gid ? '?group=' + encodeURIComponent(gid) : ''))
           setState(data)
           setError('')
           if (!promptTouched.current) setPrompt(String(data?.settings?.judgePrompt || ''))
         } catch (e) {
           setError(String(e.message || e))
         }
-      }, [])
+      }, [gid])
 
       React.useEffect(() => {
         reload()
@@ -243,14 +252,17 @@ window.__ModuleLoader__.load({
         return () => clearInterval(t)
       }, [reload])
 
+      React.useEffect(() => { setState(null); promptTouched.current = false }, [gid])
+
       React.useEffect(() => setPage(0), [tab, q])
 
       const s = state?.settings
       const PAGE = Math.max(5, Math.min(50, Number(s?.pageSize) || 10))
+      const curGroup = (state?.groups || []).find((g) => g.id === gid) || null
       const save = async (patch) => {
         setSaving(true)
         try {
-          const out = await post('/settings', patch)
+          const out = await post('/settings', Object.assign({ groupId: gid }, patch))
           setState((prev) => (prev ? { ...prev, settings: out.settings } : prev))
         } catch (e) {
           setError(String(e.message || e))
@@ -290,6 +302,36 @@ window.__ModuleLoader__.load({
           h(Switch, { value: s.enabled, onChange: (v) => set('enabled', v), title: '总开关' }),
         ),
 
+        // 群切换：每个群一份独立配置
+        h(
+          'div',
+          { className: 'as-groups' },
+          h('button', {
+            className: 'as-group',
+            'data-on': gid === '' ? '1' : '0',
+            onClick: () => setGid(''),
+            title: '新群默认吃这份；已经单独配过的群不受影响',
+          }, ['全局默认']),
+          (state.groups || []).map((g) =>
+            h('button', {
+              key: g.id,
+              className: 'as-group',
+              'data-on': gid === g.id ? '1' : '0',
+              onClick: () => setGid(g.id),
+              title: g.own ? '这个群有自己的配置' : '这个群还在跟全局默认',
+            }, [`${g.name || g.id}${g.own ? ' ·  单独配置' : ''}`])),
+        ),
+        gid
+          ? h('div', { className: 'as-groupbar' },
+            h('span', {}, `正在改群 ${curGroup?.name || gid} 的配置：`),
+            h('span', { className: 'as-muted' }, curGroup?.own ? '这个群单独存过一份，改它不影响别的群。' : '这个群现在跟全局一样，改任意一项就会给它单独存一份。'),
+            h('span', { className: 'as-grow' }),
+            h('button', {
+              className: 'as-mini',
+              onClick: async () => { await post('/settings/reset', { groupId: gid }); reload() },
+            }, '恢复成跟全局一样'),
+          )
+          : h('div', { className: 'as-groupbar' }, h('span', { className: 'as-muted' }, '正在改全局默认：新群、没单独配过的群都吃这份。')),
         h(
           'div',
           { className: 'as-tabs' },
@@ -335,7 +377,13 @@ window.__ModuleLoader__.load({
                           'div',
                           { className: 'as-gcard', key: g.id },
                           h('div', { className: 'grow' },
-                            h('span', { className: 'gid' }, g.id),
+                            h('span', {
+                              className: 'gid',
+                              style: { cursor: 'pointer' },
+                              title: '点一下，去配置这个群',
+                              onClick: () => { setGid(g.id); setTab('settings') },
+                            }, g.id),
+                            g.own ? h('span', { className: 'as-chip' }, '单独配置') : null,
                             g.muteUntil > Date.now()
                               ? h('span', { className: 'as-chip' }, '闭麦中')
                               : h('span', { className: 'as-chip' }, `分数 ${g.score}`)),

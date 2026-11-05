@@ -310,6 +310,45 @@ console.log('\n▶ HTTP')
   await call('POST', '/api/air-sense/mute', { minutes: 0 })
 }
 
+console.log('\n▶ 按群配置')
+{
+  // 起点：全局 0.02
+  const before0 = await call('GET', '/api/air-sense/state', undefined)
+  ok(Math.abs(before0.json.settings.initialProb - 0.02) < 1e-9, '全局还是 0.02')
+
+  const setGa = await call('POST', '/api/air-sense/settings', { groupId: 'gA', initialProb: 0.9 })
+  ok(setGa.code === 200 && Math.abs(setGa.json.settings.initialProb - 0.9) < 1e-9, '给 gA 单独配 0.9')
+
+  const stA = await call('GET', '/api/air-sense/state?group=gA', undefined)
+  ok(Math.abs(stA.json.settings.initialProb - 0.9) < 1e-9, 'gA 的面板读到自己的 0.9')
+  ok(stA.json.settingsGroup === 'gA', '面板回带当前群')
+  const stG = await call('GET', '/api/air-sense/state', undefined)
+  ok(Math.abs(stG.json.settings.initialProb - 0.02) < 1e-9, '全局没被 gA 改脏')
+  const stB = await call('GET', '/api/air-sense/state?group=gB', undefined)
+  ok(Math.abs(stB.json.settings.initialProb - 0.02) < 1e-9, '没配过的 gB 跟全局一样')
+  const gA = (stA.json.groups || []).find((g) => g.id === 'gA')
+  const gB = (stA.json.groups || []).find((g) => g.id === 'gB')
+  ok(gA && gA.own === true && (!gB || gB.own === false), 'own 标记：gA 单独配置 / gB 跟全局')
+
+  // 判定真的按群走：gA 概率 0.9，连续发几句应该更容易过；gB 还是 0.02
+  const gaHit = await call('POST', '/api/air-sense/decide', { groupId: 'gA', senderId: '7', text: '在吗在吗' }, { 'x-air-sense-token': tok })
+  ok(gaHit.code === 200 && typeof gaHit.json?.pass === 'boolean', 'gA 按 0.9 走判定不报错')
+
+  // 改全局不影响已单独配置的群
+  await call('POST', '/api/air-sense/settings', { initialProb: 0.3 })
+  const stA2 = await call('GET', '/api/air-sense/state?group=gA', undefined)
+  ok(Math.abs(stA2.json.settings.initialProb - 0.9) < 1e-9, '改全局不覆盖 gA')
+  const stB2 = await call('GET', '/api/air-sense/state?group=gB', undefined)
+  ok(Math.abs(stB2.json.settings.initialProb - 0.3) < 1e-9, 'gB 跟着全局变成 0.3')
+
+  // 恢复成跟全局一样
+  const rst = await call('POST', '/api/air-sense/settings/reset', { groupId: 'gA' })
+  ok(Math.abs(rst.json.settings.initialProb - 0.3) < 1e-9, 'gA 恢复成跟全局一样')
+  const stA3 = await call('GET', '/api/air-sense/state?group=gA', undefined)
+  const gA3 = (stA3.json.groups || []).find((g) => g.id === 'gA')
+  ok(gA3 && gA3.own === false, '恢复后不再是单独配置')
+}
+
 console.log('\n▶ 落盘与清理')
 {
   const data = JSON.parse(readFileSync(join(home, 'air-sense', 'store.json'), 'utf8'))
