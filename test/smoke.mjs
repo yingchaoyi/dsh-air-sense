@@ -179,6 +179,36 @@ console.log('\n▶ @ 别人：开关决定接不接')
   ok(noSkip.needJudge === false, '这种接法不用过判断')
 }
 
+console.log('\n▶ 加分明细：叠加的每一笔都要摊得开')
+{
+  const { onUserMessage, onReply, settle } = await import(join(root, 'lib/decide.mjs'))
+  const ss = normalizeSettings({
+    ...DEFAULTS,
+    scoreInit: 50, scoreSuccess: 5, scoreFast: 15, scoreMulti: 10, scoreRevive: 10, scoreStreak: 5,
+    fastReplySec: 5, dailyCap: 99, hourlyCap: 99,
+  })
+  // 低分（<30）+ 秒回 + 多人 → 基础 5 + 多人 10 + 秒回 15 + 复苏 10 = 40
+  const g = newGroupState('gs')
+  g.score = 28
+  const t0 = Date.now() - 30_000
+  onReply(g, ss, { senderId: 'u1' }, t0, { proactive: true })
+  onUserMessage(g, { senderId: 'u2', text: 'a' }, t0 + 900)
+  onUserMessage(g, { senderId: 'u3', text: 'b' }, t0 + 1500)
+  const out = settle(g, ss, t0 + 30_000)
+  ok(out && out.delta === 40, `叠加后总加 = 40（实际 ${out && out.delta}）`)
+  ok(out.parts.map((p) => `${p.v}${p.label}`).join(',') === '5有人接,10多人,15秒回,10低分复苏',
+    `明细可拆：${out.parts.map((p) => `${p.v}${p.label}`).join(',')}`)
+  ok(out.after === 68, `28 + 40 = 68（实际 ${out.after}）`)
+
+  // 没人理 → 只扣一档
+  const g2 = newGroupState('gf')
+  g2.score = 58
+  const t1 = Date.now() - 30_000
+  onReply(g2, ss, { senderId: 'u1' }, t1, { proactive: true })
+  const fail = settle(g2, ss, t1 + 30_000)
+  ok(fail && fail.parts.length === 1 && fail.parts[0].v === -(ss.scoreFail), '没人理只有一笔扣分')
+}
+
 console.log('\n▶ 图片描述走注入的服务')
 {
   const { adoptForTest, describeForTest } = await import(join(root, 'lib/index.mjs'))
