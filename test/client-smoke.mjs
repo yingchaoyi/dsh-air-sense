@@ -85,6 +85,8 @@ const checks = [
   ['日志：说明', results.log.includes('每一条「为什么没接」都在这')],
   ['设置：时间格式', results.settings.includes('YYYY 年')],
   ['设置：分组说明', results.settings.includes('不是判断，是给消息')],
+  ['规则：复读开关', results.rules.includes('开启复读')],
+  ['规则：复读阈值', results.rules.includes('连着几次才跟上')],
 ]
 
 let ok = true

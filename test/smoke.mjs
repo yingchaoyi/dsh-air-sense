@@ -310,6 +310,54 @@ console.log('\n▶ HTTP')
   await call('POST', '/api/air-sense/mute', { minutes: 0 })
 }
 
+console.log('\n▶ 复读')
+{
+  const say = async (text, id, groupId = 'grepeat') => {
+    const r = await call('POST', '/api/air-sense/decide', {
+      groupId, senderId: String(50 + id), senderName: '路人' + id, text, messageId: `${groupId}-${id}`,
+    }, { 'x-air-sense-token': tok })
+    return r.json
+  }
+
+  // 关着的时候一句都不跟
+  await call('POST', '/api/air-sense/settings', { repeatEnabled: false, repeatThreshold: 3, initialProb: 0, needActivity: false })
+  const o1 = await say('典', 1)
+  const o2 = await say('典', 2)
+  const o3 = await say('典', 3)
+  ok([o1, o2, o3].every((r) => r?.kind !== 'repeat'), '开关关着不复读')
+
+  await call('POST', '/api/air-sense/settings', { repeatEnabled: true })
+  const a1 = await say('典', 11)
+  const a2 = await say('典', 12)
+  const a3 = await say('典', 13)
+  ok(a1?.kind !== 'repeat' && a2?.kind !== 'repeat', '前两句不跟')
+  ok(a3?.kind === 'repeat' && a3?.repeatText === '典' && a3?.reason === 'repeat', '第三句原样跟上')
+  const a4 = await say('典', 14)
+  ok(a4?.kind !== 'repeat', '同一句只复读一次，不刷屏')
+
+  // 中间插一句别的，重新数
+  await say('绷', 15)
+  await say('典', 16)
+  const b2 = await say('典', 17)
+  const b3 = await say('典', 18)
+  ok(b2?.kind !== 'repeat', '中间插了别的，重新数')
+  ok(b3?.kind === 'repeat', '重新数到三次再跟上')
+
+  // 太长的句子不跟
+  const longText = '这是一段又臭又长的话'.repeat(8)
+  const L = []
+  for (let i = 0; i < 4; i += 1) L.push(await say(longText, 30 + i, 'grepeatlong'))
+  ok(L.every((r) => r?.kind !== 'repeat'), '太长的句子不复读')
+
+  // 阈值可调：设成 2，第二句就跟
+  await call('POST', '/api/air-sense/settings', { repeatThreshold: 2 })
+  const t1 = await say('乐', 40, 'grepeat2')
+  const t2 = await say('乐', 41, 'grepeat2')
+  ok(t1?.kind !== 'repeat' && t2?.kind === 'repeat', '阈值改成 2 后第二句就跟着复读')
+
+  await call('POST', '/api/air-sense/settings', { repeatEnabled: false, repeatThreshold: 3, initialProb: 0.02, needActivity: true })
+}
+
 console.log('\n▶ 按群配置')
 {
   // 起点：全局 0.02
