@@ -349,6 +349,15 @@ console.log('\n▶ 复读')
   for (let i = 0; i < 4; i += 1) L.push(await say(longText, 30 + i, 'grepeatlong'))
   ok(L.every((r) => r?.kind !== 'repeat'), '太长的句子不复读')
 
+  // 中间有人撤回：撤回提示不算「插了一句」，阵型照数
+  await call('POST', '/api/air-sense/settings', { repeatThreshold: 3 })
+  const r1 = await say('0', 60, 'grepeat3')
+  const r2 = await say('0', 61, 'grepeat3')
+  const r3 = await say('老王 撤回了一条消息', 62, 'grepeat3')
+  const r4 = await say('0', 63, 'grepeat3')
+  ok(r1?.kind !== 'repeat' && r2?.kind !== 'repeat' && r3?.kind !== 'repeat', '撤回前两句不跟、撤回本身不跟')
+  ok(r4?.kind === 'repeat' && r4?.repeatText === '0', '中间撤回一次，第三句照样跟上')
+
   // 阈值可调：设成 2，第二句就跟
   await call('POST', '/api/air-sense/settings', { repeatThreshold: 2 })
   const t1 = await say('乐', 40, 'grepeat2')
